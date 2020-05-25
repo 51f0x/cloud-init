@@ -1,0 +1,69 @@
+#cloud-config
+
+hostname: nodejs
+manage_etc_hosts: true
+
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+
+users:
+  - name: matt
+    gecos: Matt
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    primary_group: matt
+    groups: sudo
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEAlUIXU9t9PRdryA71yl3fIiDY1hiMmHkBFi6JlpWCgmJsyqmxoLCSm3iv0kTJSxlaNdAV3Jhd6Nu8h7xexElECEj0r513+AQhBQr10AEW2TjyEIggvZABjmoOKKSASyJwtGhp1hR711x60AvUmCDK/Pok31XNLkFSZmfjMIdUSTn0mEhUqcCSj5kjARmqUKLcfu3yYs2hrhZ/VgLmlB6NJxGi6pNqgJg8tDL9bHc0zjYfXbrkqmcj/gD+Ll094kqiLwQl68yIyvhTwqyNFm7L3iCHZtFVwsqGz4DHr3kGyaeE0V4rm7d0vn/vLTloZWhW+iONsce5PzStzdHfEFCE6w== rsa-key-MatthiasPfammatter      
+
+write_files:
+- content: |
+    #!/usr/bin/env sh
+    cat <<EOF | tee /etc/netplan/50-cloud-init.yaml
+    # This file is generated from information provided by the datasource.  Changes
+    # to it will not persist across an instance reboot.  To disable cloud-init's
+    # network configuration capabilities, write a file
+    # /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg with the following:
+    # network: {config: disabled}
+    network:
+        renderer: networkd
+        ethernets:
+            eth0:
+                dhcp4: true
+                dhcp4-overrides:
+                    route-metric: 20
+     #       eth1:
+     #           dhcp4: false
+     #           gateway4: 192.168.0.250
+     #           addresses:
+     #             - 192.168.0.5/24
+     #           routes:
+     #             - to: 0.0.0.0/0
+     #               via: 192.168.0.250
+     #               on-link: true
+     #               metric: 10
+     #           nameservers:
+     #               addresses: [192.168.0.254,1.1.1.1]
+        version: 2
+    EOF
+
+    echo
+    netplan apply && echo "OK: netplan configuration applied" || "ERROR: failed to apply netplan configuration"
+    sleep 2
+  path: /home/ubuntu/config-netplan.sh
+  permissions: '0755'  
+
+runcmd:
+  - systemctl restart sshd
+  - apt upgrade -y
+  - apt autoremove -y
+  - sudo chown ubuntu /home/ubuntu/config-netplan.sh
+  - sudo /home/ubuntu/config-netplan.sh
+  - echo 'vm.max_map_count=262144' >> /etc/sysctl.conf
+  - sysctl -p
+  - curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash
+  - source .bashrc
+  - nvm install node
+  - npm install expo-cli --global
